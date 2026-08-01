@@ -15,6 +15,52 @@ juce_ImplementSingleton(GlobalSettings)
 
 ApplicationCommandManager& getCommandManager();
 
+namespace
+{
+using SafeComponent = Component::SafePointer<Component>;
+
+void relayoutComponentTree(Component& component)
+{
+	SafeComponent safeComponent(&component);
+	component.resized();
+
+	if (safeComponent == nullptr) return;
+
+	if (auto* cachedImage = component.getCachedComponentImage())
+		cachedImage->invalidateAll();
+
+	std::vector<SafeComponent> children;
+	children.reserve((size_t)component.getNumChildComponents());
+
+	for (int i = 0; i < component.getNumChildComponents(); ++i)
+		children.emplace_back(component.getChildComponent(i));
+
+	for (auto& child : children)
+		if (child != nullptr) relayoutComponentTree(*child);
+
+	if (safeComponent != nullptr) component.repaint();
+}
+
+void relayoutAndRepaintTopLevelWindows()
+{
+	std::vector<SafeComponent> windows;
+	windows.reserve((size_t)TopLevelWindow::getNumTopLevelWindows());
+
+	for (int i = 0; i < TopLevelWindow::getNumTopLevelWindows(); ++i)
+		windows.emplace_back(TopLevelWindow::getTopLevelWindow(i));
+
+	for (auto& window : windows)
+	{
+		if (window == nullptr) continue;
+
+		relayoutComponentTree(*window);
+
+		if (window != nullptr)
+			if (auto* peer = window->getPeer()) peer->performAnyPendingRepaintsNow();
+	}
+}
+}
+
 GlobalSettings::GlobalSettings() :
 	ControllableContainer("Global Settings"),
 	startupCC("Startup and Update"),
@@ -72,7 +118,7 @@ GlobalSettings::GlobalSettings() :
 	reloadFontRendererOnStartup = interfaceCC.addBoolParameter("Reload font renderer on startup", "Clears the glyph caches once the complete interface has been created. Enable this if text is corrupted until Reload font renderer is clicked.", reloadFontRendererByDefault);
 	fontRendererReloadDelay = interfaceCC.addIntParameter("Font reload delay", "Delay in milliseconds before the startup font renderer reload. Increase this if some panels are still corrupted after startup.", 250, 0, 2000);
 	fontRendererReloadDelay->setEnabled(reloadFontRendererOnStartup->boolValue());
-	resetFontCache = interfaceCC.addTrigger("Reload font renderer", "Clears the software and OpenGL glyph caches and redraws the interface. Use this if text becomes corrupted without changing renderer.");
+	resetFontCache = interfaceCC.addTrigger("Reload font renderer", "Clears the software and OpenGL glyph caches, relayouts every component, and redraws the complete interface.");
 	enableTooltips = interfaceCC.addBoolParameter("Enable Tooltips", "If checked, this will show tooltips when mouse is over a parameter", true);
 	helpLanguage = interfaceCC.addEnumParameter("Help language", "What language to download ? You will need to restart the software to see changes");
 	helpLanguage->addOption("English", "en")->addOption("French", "fr")->addOption("Chinese", "cn");
@@ -232,6 +278,15 @@ void GlobalSettings::applyFontSettings(bool clearCache)
 				if (auto* window = TopLevelWindow::getTopLevelWindow(i))
 					window->sendLookAndFeelChange();
 			}
+
+			// Several OrganicUI controls only rebuild their text layout in resized().
+			// Run a component-local relayout on the following message-loop pass, after
+			// all look-and-feel notifications and asynchronous editor rebuilds settle.
+			if (auto* manager = MessageManager::getInstanceWithoutCreating();
+				manager != nullptr && !manager->hasStopMessageBeenSent())
+				Timer::callAfterDelay(50, []() { relayoutAndRepaintTopLevelWindows(); });
+			else
+				relayoutAndRepaintTopLevelWindows();
 		};
 
 	auto* mm = MessageManager::getInstanceWithoutCreating();
