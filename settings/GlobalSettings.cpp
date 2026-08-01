@@ -50,7 +50,14 @@ GlobalSettings::GlobalSettings() :
 	addChildControllableContainer(&startupCC);
 
 	closeToSystemTray = interfaceCC.addBoolParameter("Close to system tray", "If checked, closing the main window will remove the window from desktop and put it on the system tray, but the app will still be running", false);
+	fontFamily = interfaceCC.addEnumParameter("Font family", "Typeface used by the interface. Changes are applied immediately; unavailable fonts fall back to the system default.");
+	fontFamily->addOption("System default", "");
+	StringArray fontNames = Font::findAllTypefaceNames();
+	fontNames.sortNatural();
+	for (const auto& fontName : fontNames) fontFamily->addOption(fontName, fontName, false);
+
 	fontSize = interfaceCC.addIntParameter("Font size", "Global font size, may be altered in some cases but this is used as a reference", 14, 0, 30);
+	resetFontCache = interfaceCC.addTrigger("Reload font renderer", "Clears the software and OpenGL glyph caches and redraws the interface. Use this if text becomes corrupted without changing renderer.");
 	enableTooltips = interfaceCC.addBoolParameter("Enable Tooltips", "If checked, this will show tooltips when mouse is over a parameter", true);
 	helpLanguage = interfaceCC.addEnumParameter("Help language", "What language to download ? You will need to restart the software to see changes");
 	helpLanguage->addOption("English", "en")->addOption("French", "fr")->addOption("Chinese", "cn");
@@ -60,7 +67,7 @@ GlobalSettings::GlobalSettings() :
 	useGL = false;
 #endif
 
-	useGLRenderer = interfaceCC.addBoolParameter("Use OpenGL Renderer", "If checked, this will use hardware acceleration to render the interface. You may want to NOT use this on some platform or when using the IFrame Dashboard item. You need to restart if you change it.", useGL);
+	useGLRenderer = interfaceCC.addBoolParameter("Use OpenGL Renderer", "Use hardware acceleration for the interface. Disable this to switch immediately to the software renderer if a GPU driver causes distorted text. The -forceNoGL launch argument is available if the interface is unreadable.", useGL);
 	
 	uiRefreshRate = interfaceCC.addIntParameter("UI Refresh Rate", "The refresh rate of the UI in hz", 30, 1, 100);
 	loggerRefreshRate = interfaceCC.addIntParameter("Logger Refresh Rate", "The refresh rate of the logger in hz", 20, 1, 1000);
@@ -141,6 +148,28 @@ void GlobalSettings::onControllableFeedbackUpdate(ControllableContainer* cc, Con
 	{
 		HelpBox::getInstance()->loadHelp();
 	}
+	else if (c == fontFamily)
+	{
+		applyFontSettings();
+	}
+	else if (c == resetFontCache)
+	{
+		applyFontSettings(true);
+	}
+	else if (c == useGLRenderer && getApp().mainComponent != nullptr)
+	{
+		Component::SafePointer<OrganicMainContentComponent> safeMain(getApp().mainComponent.get());
+		auto updateRenderer = [safeMain]()
+			{
+				if (safeMain != nullptr) safeMain->setupOpenGL();
+			};
+
+		auto* mm = MessageManager::getInstanceWithoutCreating();
+		if (mm != nullptr && !mm->isThisTheMessageThread() && !mm->hasStopMessageBeenSent())
+			MessageManager::callAsync(updateRenderer);
+		else if (mm == nullptr || !mm->hasStopMessageBeenSent())
+			updateRenderer();
+	}
 	else if (c == testCrash)
 	{
 #if JUCE_DEBUG
@@ -165,6 +194,28 @@ void GlobalSettings::onControllableFeedbackUpdate(ControllableContainer* cc, Con
 
 
 	if (Engine::mainEngine != nullptr) Engine::mainEngine->setChangedFlag(false); //force no need to save when changing something in global settings
+}
+
+void GlobalSettings::applyFontSettings(bool clearCache)
+{
+	const String selectedFont = fontFamily != nullptr ? fontFamily->getValueData().toString() : String();
+	auto apply = [selectedFont, clearCache]()
+		{
+			if (clearCache) Typeface::clearTypefaceCache();
+			LookAndFeel::getDefaultLookAndFeel().setDefaultSansSerifTypefaceName(selectedFont);
+
+			for (int i = 0; i < TopLevelWindow::getNumTopLevelWindows(); ++i)
+			{
+				if (auto* window = TopLevelWindow::getTopLevelWindow(i))
+					window->sendLookAndFeelChange();
+			}
+		};
+
+	auto* mm = MessageManager::getInstanceWithoutCreating();
+	if (mm != nullptr && !mm->isThisTheMessageThread() && !mm->hasStopMessageBeenSent())
+		MessageManager::callAsync(apply);
+	else if (mm == nullptr || !mm->hasStopMessageBeenSent())
+		apply();
 }
 
 void GlobalSettings::loadJSONDataInternal(var data)

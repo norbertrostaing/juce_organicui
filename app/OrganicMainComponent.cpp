@@ -13,6 +13,7 @@ OrganicMainContentComponent::OrganicMainContentComponent()
 
 	lookAndFeelOO.reset(new LookAndFeelOO());
 	LookAndFeel::setDefaultLookAndFeel(lookAndFeelOO.get());
+	GlobalSettings::getInstance()->applyFontSettings();
 
 #if JUCE_MAC
 	setMacMainMenu(this, nullptr, "");
@@ -112,23 +113,30 @@ void OrganicMainContentComponent::afterInit()
 void OrganicMainContentComponent::setupOpenGL()
 {
 #if JUCE_OPENGL
-if (GlobalSettings::getInstance()->useGLRenderer->boolValue())
-{
-	if (openGLContext == nullptr)
+	if (GlobalSettings::getInstance()->useGLRenderer->boolValue())
 	{
-		openGLContext.reset(new OpenGLContext());
-		openGLContext->setComponentPaintingEnabled(true);
-		openGLContext->setContinuousRepainting(false);
+		if (openGLContext == nullptr)
+		{
+			openGLContext.reset(new OpenGLContext());
+			openGLContext->setComponentPaintingEnabled(true);
+			openGLContext->setContinuousRepainting(false);
 
-		setupOpenGLInternal();
+			setupOpenGLInternal();
 
 #if ORGANICUI_USE_SHAREDTEXTURE
-		openGLContext->setRenderer(this);
+			openGLContext->setRenderer(this);
 #endif
 
-		openGLContext->attachTo(*this);
+			openGLContext->attachTo(*this);
+		}
 	}
-}
+	else if (openGLContext != nullptr)
+	{
+		openGLContext->detach();
+		openGLContext->setRenderer(nullptr);
+		openGLContext.reset();
+		repaint();
+	}
 #endif
 }
 

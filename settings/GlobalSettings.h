@@ -51,7 +51,9 @@ public:
 	ControllableContainer interfaceCC;
 	BoolParameter* closeToSystemTray;
 	BoolParameter* enableTooltips;
+	EnumParameter* fontFamily;
 	IntParameter* fontSize;
+	Trigger* resetFontCache;
 	EnumParameter* helpLanguage;
 	BoolParameter* useGLRenderer;
 	IntParameter* uiRefreshRate;
@@ -88,6 +90,7 @@ public:
 
 	void onControllableFeedbackUpdate(ControllableContainer *, Controllable * c) override;
 	void loadJSONDataInternal(juce::var data) override;
+	void applyFontSettings(bool clearCache = false);
 
 	void loadKeyMappingsFromData();
 	void addLaunchArguments(const juce::String& commandLine, const CommandLineElements& elements);
