@@ -28,7 +28,13 @@ SharedTextureDashboardItem::SharedTextureDashboardItem(var params) :
 		return;
 	}
 #elif JUCE_MAC
-	if (getSharedTextureManager() != nullptr) LOG(getSharedTextureManager()->getAvailableSenders().joinIntoString(","));
+	if (auto* manager = getSharedTextureManager())
+	{
+		StringArray serverNames;
+		StringArray appNames;
+		manager->getAvailableSenderDetails(serverNames, appNames);
+		LOG(serverNames.joinIntoString(","));
+	}
 #endif
 
 	if (!Engine::mainEngine->isLoadingFile) setupReceiver();
