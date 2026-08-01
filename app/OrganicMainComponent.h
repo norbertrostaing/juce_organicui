@@ -1,6 +1,9 @@
 #pragma once
 
-class OrganicMainContentComponent   : 
+//Forward declaration - full definition in .cpp
+class SharedTextureManager;
+
+class OrganicMainContentComponent   :
 	public juce::Component, 
 	public juce::ApplicationCommandTarget, 
 	public juce::MenuBarModel, 
@@ -21,7 +24,11 @@ public:
 
 	std::unique_ptr<LookAndFeelOO> lookAndFeelOO;
 	std::unique_ptr<ProgressWindow> fileProgressWindow;
-	
+
+#if ORGANICUI_USE_SHAREDTEXTURE
+	SharedTextureManager* sharedTextureManager = nullptr;
+#endif
+
 	virtual void init();
 	virtual void afterInit();
 	virtual void setupOpenGL();

@@ -137,9 +137,30 @@ public:
     }
 
     // allow to stack all values or get oly last updated value
-    void addListener(Listener* newListener) { listeners.add(newListener); }
-    void addAsyncCoalescedListener(Listener* newListener) { lastListeners.add(newListener); }
-    void removeListener(Listener* listener) { listeners.remove(listener);lastListeners.remove(listener); }
+    void addListener(Listener* newListener) 
+    {
+		if (isBeingDestroyed.load(std::memory_order_acquire))
+			return;
+        
+        listeners.add(newListener); 
+    }
+
+    void addAsyncCoalescedListener(Listener* newListener) 
+    {
+		if (isBeingDestroyed.load(std::memory_order_acquire))
+			return;
+		
+        lastListeners.add(newListener);
+	}
+
+    void removeListener(Listener* listener) 
+    { 
+        if (isBeingDestroyed.load(std::memory_order_acquire))
+			return;
+        
+        listeners.remove(listener);
+        lastListeners.remove(listener); 
+    }
 
     void clearQueue()
     {
@@ -155,7 +176,11 @@ private:
         if (isBeingDestroyed.load(std::memory_order_acquire))
             return;
 
-        juce::Array<MessageClass*> messagesToDeliver;
+        // Take ownership of ready messages before releasing queueLock. Once
+        // finishedRead() makes a slot writable, a producer may immediately
+        // reuse it; leaving the message owned by messageQueue would let set()
+        // delete it while listeners are still reading it.
+        juce::OwnedArray<MessageClass> messagesToDeliver;
         MessageClass* lastMessage = nullptr;
 
         {
@@ -177,6 +202,7 @@ private:
                 if (auto* message = messageQueue.getUnchecked(i))
                 {
                     messagesToDeliver.add(message);
+                    messageQueue.set(i, nullptr, false);
                     lastMessage = message;
                 }
             }
@@ -194,6 +220,7 @@ private:
                     if (auto* message = messageQueue.getUnchecked(i))
                     {
                         messagesToDeliver.add(message);
+                        messageQueue.set(i, nullptr, false);
                         lastMessage = message;
                     }
                 }
@@ -201,6 +228,7 @@ private:
 
             if (outOfRange)
             {
+                messageQueue.clear();
                 fifo.reset();
                 return;
             }

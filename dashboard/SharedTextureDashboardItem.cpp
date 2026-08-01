@@ -28,26 +28,26 @@ SharedTextureDashboardItem::SharedTextureDashboardItem(var params) :
 		return;
 	}
 #elif JUCE_MAC
-    LOG(SharedTextureManager::getInstance()->getAvailableSenders().joinIntoString(","));
+	if (getSharedTextureManager() != nullptr) LOG(getSharedTextureManager()->getAvailableSenders().joinIntoString(","));
 #endif
 
 	if (!Engine::mainEngine->isLoadingFile) setupReceiver();
 	else Engine::mainEngine->addEngineListener(this);
-	SharedTextureManager::getInstance()->addListener(this);
+	if (getSharedTextureManager() != nullptr) getSharedTextureManager()->addListener(this);
 }
 
 SharedTextureDashboardItem::~SharedTextureDashboardItem()
 {
-	if (SharedTextureManager::getInstanceWithoutCreating() != nullptr)
+	if (getSharedTextureManager() != nullptr)
 	{
 		if (receiver != nullptr)
 		{
 			receiver->removeListener(this);
-			SharedTextureManager::getInstance()->removeReceiver(receiver);
+			getSharedTextureManager()->removeReceiver(receiver, true);
 			receiver = nullptr;
 		}
 
-		SharedTextureManager::getInstance()->removeListener(this);
+		getSharedTextureManager()->removeListener(this);
 	}
 
 }
@@ -56,11 +56,15 @@ void SharedTextureDashboardItem::setupReceiver()
 {
 	if (receiver == nullptr)
 	{
-		receiver = SharedTextureManager::getInstance()->addReceiver(textureName->stringValue(), appName->stringValue());
-		receiver->addListener(this);
+		if (getSharedTextureManager() != nullptr)
+		{
+			receiver = getSharedTextureManager()->addReceiver(textureName->stringValue(), appName->stringValue());
+			receiver->addListener(this);
+		}
 	}
 
-	receiver->setSharingName(textureName->stringValue(), appName->stringValue());
+	if (receiver != nullptr)
+		receiver->setSharingName(textureName->stringValue(), appName->stringValue());
 }
 
 Image SharedTextureDashboardItem::getImage()

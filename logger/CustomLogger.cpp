@@ -16,14 +16,15 @@ const String & CustomLogger::getWelcomeMessage() {
 void CustomLogger::logMessage(const String& message)
 {
 	LogElement* el = new LogElement(message);
-	while (logElements.size() >= MAX_LOGS)
+	LogEvent* event = nullptr;
 	{
-		notifier.cancelPendingUpdate();
-		logElements.remove(0, true);
+		GenericScopedLock lock(logElements.getLock());
+		while (logElements.size() >= MAX_LOGS) logElements.remove(0, true);
+		logElements.add(el);
+		event = new LogEvent(el);
 	}
 
-	logElements.add(el);
-	notifier.addMessage(new LogEvent(el));
+	notifier.addMessage(event);
 	DBG(message);
 }
 

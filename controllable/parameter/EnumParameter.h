@@ -33,6 +33,7 @@ public:
 	void removeOption(juce::String key);
 	void setOptions(juce::Array<EnumValue> options);
 	void clearOptions();
+	juce::var getRange() const override;
 
 	void updateArgDescription();
 
@@ -57,9 +58,9 @@ public:
 
 	juce::StringArray getAllKeys();
 
-	bool setValueWithData(juce::var data);
-	bool setValueWithKey(juce::String data);
-	bool setValueAtIndex(int index);
+	bool setValueWithData(juce::var data, bool silentSet = false, bool force = false, bool forceOverride = true);
+	bool setValueWithKey(juce::String data, bool silentSet = false, bool force = false, bool forceOverride = true);
+	bool setValueAtIndex(int index, bool silentSet = false, bool force = false, bool forceOverride = true);
 	void setPrev(bool loop = true, bool addToUndo = false);
 	void setNext(bool loop = true, bool addToUndo = false);
 
@@ -109,7 +110,10 @@ public:
 	static EnumParameter* create() { return new EnumParameter("new Enum Parameter", ""); }
 	virtual juce::String getTypeString() const override { return getTypeStringStatic(); }
 	static juce::String getTypeStringStatic() { return "Enum"; }
+	
+	void setValueInternal(juce::var& data) override;
 
 private:
 	JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(EnumParameter)
+
 };

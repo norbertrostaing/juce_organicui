@@ -95,11 +95,10 @@ private:
 
 	juce::Atomic<int> totalLogRow;
 	void updateTotalLogRow();
-	const LogElement * getElementForRow(const int r) const;
-	const juce::String& getSourceForRow(const int r) const;
+	juce::String getSourceForRow(const int r) const;
 	const bool isPrimaryRow(const int r) const;
-	const juce::String& getContentForRow(const int r) const;
-	const juce::Colour& getSeverityColourForRow(const int r)const;
+	juce::String getContentForRow(const int r) const;
+	juce::Colour getSeverityColourForRow(const int r)const;
 	const juce::String getTimeStringForRow(const int r) const;
 	friend class LogList;
 

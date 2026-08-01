@@ -56,7 +56,7 @@ Automation::Automation(const String& name, AutomationRecorder* recorder, bool al
 	valueRange->setPoint(0, 1);
 
 	rangeRemapMode = addEnumParameter("Range Remap Mode", "The way of recaculating the key values when changing the range.\nAbsolute means no modification is done. Proportional means that the relative value of the key will be maintained.");
-	rangeRemapMode->addOption("Absolute", ABSOLUTE)->addOption("Proportional", PROPORTIONAL);
+	rangeRemapMode->addOption("Absolute", ABSOLUTE_MODE)->addOption("Proportional", PROPORTIONAL);
 	rangeRemapMode->hideInEditor = true;
 
 	scriptObject.getDynamicObject()->setMethod("setLength", &Automation::setLengthFromScript);
@@ -132,7 +132,9 @@ void Automation::insertKeyAt(const float& pos, bool addToUndo)
 		CubicEasing* ce1 = (CubicEasing*)startKey->easing.get();
 		CubicEasing* ce2 = (CubicEasing*)k->easing.get();
 
-		if (ce1 == nullptr || ce2 == nullptr) return;
+		if (ce1 == nullptr || ce2 == nullptr
+			|| ce1->anchor1 == nullptr || ce1->anchor2 == nullptr
+			|| ce2->anchor1 == nullptr || ce2->anchor2 == nullptr) return;
 
 		ce1->anchor1->setPoint(controlPoints[0] - ce1->start);
 		ce1->anchor2->setPoint(controlPoints[1] - ce1->end);

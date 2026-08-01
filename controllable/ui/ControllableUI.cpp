@@ -79,7 +79,7 @@ void ControllableUI::mouseExit(const MouseEvent& e)
 
 void ControllableUI::mouseDown(const MouseEvent& e)
 {
-	if (controllable == nullptr && controllable.wasObjectDeleted()) return;
+	if (controllable == nullptr || controllable.wasObjectDeleted()) return;
 
 	setTooltip("");  //force not showing tooltip after click
 	if (e.mods.isRightButtonDown())
@@ -213,8 +213,10 @@ void ControllableUI::showContextMenu()
 
 	if (p->getNumItems() == 0) return;
 
-	p->showMenuAsync(PopupMenu::Options(), [this](int result)
+	Component::SafePointer<ControllableUI> safeThis(this);
+	p->showMenuAsync(PopupMenu::Options(), [this, safeThis](int result)
 		{
+			if (safeThis == nullptr) return;
 			if (result == 0) return;
 
 			if (controllable == nullptr || controllable.wasObjectDeleted()) return; //in cas it has been deleted while menu was out...
