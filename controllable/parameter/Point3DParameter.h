@@ -21,13 +21,20 @@ public:
 	int stringDecimals;
 
 
-	void setVector(juce::Vector3D<float> value);
-	void setVector(float x, float y, float z);
+	void setVector(juce::Vector3D<float> value, bool silentSet = false, bool force = false, bool forceOverride = true);
+	void setVector(float x, float y, float z, bool silentSet = false, bool force = false, bool forceOverride = true);
+	void setX(float x, bool silentSet = false, bool force = false, bool forceOverride = true);
+	void setY(float y, bool silentSet = false, bool force = false, bool forceOverride = true);
+	void setZ(float x, bool silentSet = false, bool force = false, bool forceOverride = true);
+
 	juce::UndoableAction* setUndoableVector(juce::Vector3D<float> oldVector, juce::Vector3D<float> newVector, bool onlyReturnAction = false);
 	juce::UndoableAction* setUndoableVector(float oldX, float oldY, float oldZ, float newX, float newY, float newZ, bool onlyReturnAction = false);
 	
 	void setValueInternal(juce::var& _value) override;
 	void setBounds(float _minX, float _minY, float _minZ, float _maxX, float _maxY, float _maxZ);
+
+	void setDefaultVector(const juce::Vector3D<float>& value, bool doResetValue = true);
+	void setDefaultVector(float x, float y, float z, bool doResetValue = true);
 
 	juce::Vector3D<float> getVector();
 	virtual juce::var getLerpValueTo(juce::var targetValue, float weight) override;

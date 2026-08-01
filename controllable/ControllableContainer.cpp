@@ -401,7 +401,13 @@ void ControllableContainer::setNiceName(const String& _niceName)
 	controllableContainerListeners.call(&ControllableContainerListener::controllableContainerNameChanged, this);
 
 #if ORGANICUI_USE_WEBSERVER
-	if (OSCRemoteControl::getInstanceWithoutCreating() != nullptr && isAttachedToRoot()) OSCRemoteControl::getInstance()->sendPathNameChangedFeedback(oldControlAddress, getControlAddress());
+	if (OSCRemoteControl::getInstanceWithoutCreating() != nullptr && isAttachedToRoot())
+	{
+		// FULL_PATH *and* DESCRIPTION changed, so send both PATH_RENAMED then PATH_CHANGED feedback messages
+		const auto newControlAddress = getControlAddress();
+		OSCRemoteControl::getInstance()->sendPathNameChangedFeedback(oldControlAddress, newControlAddress);
+		OSCRemoteControl::getInstance()->sendPathChangedFeedback(newControlAddress);
+	}
 #endif
 
 	niceNameChanged();
@@ -842,6 +848,14 @@ void ControllableContainer::parameterRangeChanged(Parameter* p)
 	if (p->parentContainer == this)
 	{
 		dispatchFeedback(p);
+
+#if ORGANICUI_USE_WEBSERVER
+		if (OSCRemoteControl::getInstanceWithoutCreating() != nullptr && isAttachedToRoot())
+		{
+			OSCRemoteControl::getInstance()->sendPathChangedFeedback(p->getControlAddress());
+		}
+#endif
+
 	}
 	else
 	{
@@ -985,7 +999,7 @@ var ControllableContainer::getJSONData(bool includeNonOverriden)
 		//ownedContainers.getLock().enter();
 		for (auto& cc : controllableContainers)
 		{
-			if (!cc->includeInRecursiveSave) continue;
+			if (cc == nullptr || cc.wasObjectDeleted() || !cc->includeInRecursiveSave) continue;
 
 			var ccData = cc->getJSONData();
 			if (ownedContainers.contains(cc))
@@ -1098,16 +1112,22 @@ var ControllableContainer::getRemoteControlData()
 
 	var contentData(new DynamicObject());
 
-	for (auto& childC : controllables)
 	{
-		if (childC->hideInRemoteControl) continue;
-		contentData.getDynamicObject()->setProperty(childC->shortName, childC->getRemoteControlData());
+		GenericScopedLock lock(controllables.getLock());
+		for (auto& childC : controllables)
+		{
+			if (childC->hideInRemoteControl) continue;
+			contentData.getDynamicObject()->setProperty(childC->shortName, childC->getRemoteControlData());
+		}
 	}
 
-	for (auto& childCC : controllableContainers)
 	{
-		if (childCC == nullptr || childCC.wasObjectDeleted() || childCC->hideInRemoteControl) continue;
-		contentData.getDynamicObject()->setProperty(childCC->shortName, childCC->getRemoteControlData());
+		GenericScopedLock lock(controllableContainers.getLock());
+		for (auto& childCC : controllableContainers)
+		{
+			if (childCC == nullptr || childCC.wasObjectDeleted() || childCC->hideInRemoteControl) continue;
+			contentData.getDynamicObject()->setProperty(childCC->shortName, childCC->getRemoteControlData());
+		}
 	}
 
 	data.getDynamicObject()->setProperty("CONTENTS", contentData);

@@ -43,17 +43,19 @@ EnumParameter::~EnumParameter()
 
 EnumParameter* EnumParameter::addOption(String key, var data, bool selectIfFirstOption)
 {
-	GenericScopedLock lock(enumValues.getLock());
-	enumValues.add(new EnumValue(key, data));
-	if (enumValues.size() == 1 && selectIfFirstOption)
 	{
-		defaultValue = key;
-		setValue(key, true, false, false);
+		GenericScopedLock lock(enumValues.getLock());
+		enumValues.add(new EnumValue(key, data));
+		if (enumValues.size() == 1 && selectIfFirstOption)
+		{
+			defaultValue = key;
+			setValue(key, true, false, false);
+		}
+		updateArgDescription();
 	}
 
 	enumListeners.call(&EnumParameterListener::enumOptionAdded, this, key);
 	enumParameterNotifier.addMessage(new EnumParameterEvent(EnumParameterEvent::ENUM_OPTION_ADDED, this));
-	updateArgDescription();
 	return this;
 }
 
@@ -79,11 +81,14 @@ void EnumParameter::updateOption(int index, String key, var data, bool addIfNotT
 
 void EnumParameter::removeOption(String key)
 {
-	GenericScopedLock lock(enumValues.getLock());
-	enumValues.remove(getIndexForKey(key));
-	enumListeners.call(&EnumParameterListener::enumOptionRemoved, this, key);
+	{
+		GenericScopedLock lock(enumValues.getLock());
+		enumValues.remove(getIndexForKey(key));
+		updateArgDescription();
+	}
+
 	enumParameterNotifier.addMessage(new EnumParameterEvent(EnumParameterEvent::ENUM_OPTION_REMOVED, this));
-	updateArgDescription();
+	enumListeners.call(&EnumParameterListener::enumOptionRemoved, this, key);
 
 	if (getValueKey() == key) setValue("");
 }
@@ -101,10 +106,22 @@ void EnumParameter::setOptions(Array<EnumValue> options)
 
 void EnumParameter::clearOptions()
 {
-	GenericScopedLock lock(enumValues.getLock());
 	StringArray keysToRemove;
-	for (auto& ev : enumValues) keysToRemove.add(ev->key);
+	{
+		GenericScopedLock lock(enumValues.getLock());
+		for (auto& ev : enumValues) keysToRemove.add(ev->key);
+	}
 	for (auto& k : keysToRemove) removeOption(k);
+}
+
+var EnumParameter::getRange() const
+{
+	var result;
+	for (const auto& ev : enumValues)
+	{
+		result.append(ev->key);
+	}
+	return result;
 }
 
 void EnumParameter::updateArgDescription()
@@ -155,14 +172,14 @@ StringArray EnumParameter::getAllKeys()
 	return result;
 }
 
-bool EnumParameter::setValueWithData(var data)
+bool EnumParameter::setValueWithData(var data, bool silentSet, bool force, bool forceOverride)
 {
 	GenericScopedLock lock(enumValues.getLock());
 	for (auto& ev : enumValues)
 	{
 		if (ev->value == data)
 		{
-			setValueWithKey(ev->key);
+			setValueWithKey(ev->key, silentSet, force, forceOverride);
 			return true;
 		}
 	}
@@ -170,17 +187,17 @@ bool EnumParameter::setValueWithData(var data)
 	return false;
 }
 
-bool EnumParameter::setValueWithKey(String key)
+bool EnumParameter::setValueWithKey(String key, bool silentSet, bool force, bool forceOverride)
 {
 	if (getEntryForKey(key) == nullptr) return false;
-	setValue(key);
+	setValue(key, silentSet, force, forceOverride);
 	return true;
 }
 
-bool EnumParameter::setValueAtIndex(int index)
+bool EnumParameter::setValueAtIndex(int index, bool silentSet, bool force, bool forceOverride)
 {
 	if (index >= enumValues.size()) return false;
-	setValueWithKey(enumValues[index]->key);
+	setValueWithKey(enumValues[index]->key, silentSet, force, forceOverride);
 	return true;
 }
 
@@ -460,4 +477,16 @@ ControllableUI* EnumParameter::createDefaultUI(Array<Controllable*> controllable
 DashboardItem* EnumParameter::createDashboardItem()
 {
 	return new DashboardEnumParameterItem(this);
+}
+
+void EnumParameter::setValueInternal(juce::var& key) 
+{
+	// If the set value does not exist as an option, reset to default
+	if (getIndexForKey(key.toString()) == -1)
+	{
+		Parameter::setValueInternal(defaultValue);
+		return;
+	}
+
+	Parameter::setValueInternal(key);
 }
