@@ -58,6 +58,25 @@ void Inspector::resized()
 	resizedInternal(r);
 }
 
+void Inspector::lookAndFeelChanged()
+{
+	if (currentEditor == nullptr || currentInspectables.isEmpty())
+	{
+		repaint();
+		return;
+	}
+
+	const Point<int> viewPosition = vp.getViewPosition();
+	Array<Inspectable*> inspectables(currentInspectables);
+
+	vp.setViewedComponent(nullptr);
+	currentEditor.reset(inspectables[0]->getEditor(true, inspectables));
+	vp.setViewedComponent(currentEditor.get(), false);
+	resized();
+	vp.setViewPosition(viewPosition);
+	repaint();
+}
+
 void Inspector::resizedInternal(juce::Rectangle<int>& r)
 {
 	vp.setBounds(r);

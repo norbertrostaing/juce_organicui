@@ -53,6 +53,8 @@ public:
 	BoolParameter* enableTooltips;
 	EnumParameter* fontFamily;
 	IntParameter* fontSize;
+	BoolParameter* reloadFontRendererOnStartup;
+	IntParameter* fontRendererReloadDelay;
 	Trigger* resetFontCache;
 	EnumParameter* helpLanguage;
 	BoolParameter* useGLRenderer;
@@ -91,6 +93,7 @@ public:
 	void onControllableFeedbackUpdate(ControllableContainer *, Controllable * c) override;
 	void loadJSONDataInternal(juce::var data) override;
 	void applyFontSettings(bool clearCache = false);
+	void scheduleFontRendererReload();
 
 	void loadKeyMappingsFromData();
 	void addLaunchArguments(const juce::String& commandLine, const CommandLineElements& elements);

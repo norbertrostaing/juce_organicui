@@ -65,6 +65,13 @@ GlobalSettings::GlobalSettings() :
 	for (const auto& fontName : fontNames) fontFamily->addOption(fontName, fontName, false);
 
 	fontSize = interfaceCC.addIntParameter("Font size", "Global font size, may be altered in some cases but this is used as a reference", 14, 0, 30);
+	bool reloadFontRendererByDefault = false;
+#if JUCE_WINDOWS
+	reloadFontRendererByDefault = true;
+#endif
+	reloadFontRendererOnStartup = interfaceCC.addBoolParameter("Reload font renderer on startup", "Clears the glyph caches once the complete interface has been created. Enable this if text is corrupted until Reload font renderer is clicked.", reloadFontRendererByDefault);
+	fontRendererReloadDelay = interfaceCC.addIntParameter("Font reload delay", "Delay in milliseconds before the startup font renderer reload. Increase this if some panels are still corrupted after startup.", 250, 0, 2000);
+	fontRendererReloadDelay->setEnabled(reloadFontRendererOnStartup->boolValue());
 	resetFontCache = interfaceCC.addTrigger("Reload font renderer", "Clears the software and OpenGL glyph caches and redraws the interface. Use this if text becomes corrupted without changing renderer.");
 	enableTooltips = interfaceCC.addBoolParameter("Enable Tooltips", "If checked, this will show tooltips when mouse is over a parameter", true);
 	helpLanguage = interfaceCC.addEnumParameter("Help language", "What language to download ? You will need to restart the software to see changes");
@@ -160,6 +167,10 @@ void GlobalSettings::onControllableFeedbackUpdate(ControllableContainer* cc, Con
 	{
 		applyFontSettings();
 	}
+	else if (c == reloadFontRendererOnStartup)
+	{
+		fontRendererReloadDelay->setEnabled(reloadFontRendererOnStartup->boolValue());
+	}
 	else if (c == resetFontCache)
 	{
 		applyFontSettings(true);
@@ -228,6 +239,18 @@ void GlobalSettings::applyFontSettings(bool clearCache)
 		MessageManager::callAsync(apply);
 	else if (mm == nullptr || !mm->hasStopMessageBeenSent())
 		apply();
+}
+
+void GlobalSettings::scheduleFontRendererReload()
+{
+	if (reloadFontRendererOnStartup == nullptr || !reloadFontRendererOnStartup->boolValue()) return;
+
+	const int delayMs = fontRendererReloadDelay != nullptr ? fontRendererReloadDelay->intValue() : 250;
+	Timer::callAfterDelay(jmax(1, delayMs), []()
+		{
+			if (auto* settings = GlobalSettings::getInstanceWithoutCreating())
+				settings->applyFontSettings(true);
+		});
 }
 
 void GlobalSettings::loadJSONDataInternal(var data)

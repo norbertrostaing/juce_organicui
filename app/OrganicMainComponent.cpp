@@ -13,7 +13,7 @@ OrganicMainContentComponent::OrganicMainContentComponent()
 
 	lookAndFeelOO.reset(new LookAndFeelOO());
 	LookAndFeel::setDefaultLookAndFeel(lookAndFeelOO.get());
-	GlobalSettings::getInstance()->applyFontSettings();
+	GlobalSettings::getInstance()->applyFontSettings(true);
 
 #if JUCE_MAC
 	setMacMainMenu(this, nullptr, "");
@@ -113,6 +113,11 @@ void OrganicMainContentComponent::afterInit()
 
 
 	if (isShowing()) grabKeyboardFocus();
+
+	// Some Windows systems populate JUCE's glyph caches while the interface is still
+	// being assembled. Repeating the cache reset after all panels exist is equivalent
+	// to pressing the manual Reload font renderer trigger, but happens automatically.
+	GlobalSettings::getInstance()->scheduleFontRendererReload();
 }
 
 void OrganicMainContentComponent::setupOpenGL()

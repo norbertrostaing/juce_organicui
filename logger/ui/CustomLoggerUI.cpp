@@ -63,6 +63,19 @@ CustomLoggerUI::~CustomLoggerUI()
 	logger->removeLogListener(this);
 }
 
+void CustomLoggerUI::lookAndFeelChanged()
+{
+	logList.refreshFont();
+
+	if (logListComponent != nullptr)
+	{
+		logListComponent->updateContent();
+		logListComponent->repaint();
+	}
+
+	repaint();
+}
+
 void CustomLoggerUI::resized()
 {
 
@@ -333,12 +346,6 @@ void CustomLoggerUI::LogList::paintRowBackground(Graphics& g,
 };
 
 
-// use as function to prevent juce leak detection
-const Font  getLogFont() {
-	static Font  f(12);
-	return f;
-}
-
 String CustomLoggerUI::LogList::getTextAt(int rowNumber, int columnId) {
 	String text;
 
@@ -373,7 +380,7 @@ Component* CustomLoggerUI::LogList::refreshComponentForCell(int rowNumber, int c
 	}
 	else {
 		lp = new Label();
-		lp->setFont(getLogFont());
+		lp->setFont(logFont);
 		lp->setEditable(true);
 		//        lp->showEditor();
 
@@ -407,17 +414,22 @@ void CustomLoggerUI::LogList::paintCell(Graphics& g,
 
 
 	auto& cg = cachedG.getReference(text);
-	cg.setFont(getLogFont());
+	cg.setFont(logFont);
 	cg.setText(text);
 	cg.setSize(width, height);
 	cg.paint(g);
 #else
-	g.setFont(getLogFont());
+	g.setFont(logFont);
 	g.drawFittedText(text, 0, 0, width, height, Justification::left, 1);
 #endif
 
 #endif
 };
+
+void CustomLoggerUI::LogList::refreshFont()
+{
+	logFont = Font(12.0f);
+}
 
 String CustomLoggerUI::LogList::getCellTooltip(int rowNumber, int /*columnId*/)
 {
