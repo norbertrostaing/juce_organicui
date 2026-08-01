@@ -110,9 +110,10 @@ public:
 	static EnumParameter* create() { return new EnumParameter("new Enum Parameter", ""); }
 	virtual juce::String getTypeString() const override { return getTypeStringStatic(); }
 	static juce::String getTypeStringStatic() { return "Enum"; }
+	
+	void setValueInternal(juce::var& data) override;
 
 private:
 	JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(EnumParameter)
 
-	void setValueInternal(juce::var& data) override;
 };

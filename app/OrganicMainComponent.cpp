@@ -21,7 +21,8 @@ OrganicMainContentComponent::OrganicMainContentComponent()
 #endif
 
 #if ORGANICUI_USE_SHAREDTEXTURE
-	SharedTextureManager::getInstance(); //create the main instance
+	sharedTextureManager = new SharedTextureManager();
+	g_SharedTextureManager = sharedTextureManager;
 #endif
 
 }
@@ -39,7 +40,11 @@ OrganicMainContentComponent::~OrganicMainContentComponent()
 	OrganicUITimers::deleteInstance();
 
 #if ORGANICUI_USE_SHAREDTEXTURE
-	SharedTextureManager::deleteInstance();
+	if (sharedTextureManager != nullptr) {
+		delete sharedTextureManager;
+		sharedTextureManager = nullptr;
+	}
+	g_SharedTextureManager = nullptr;
 #endif
 }
 
@@ -162,19 +167,19 @@ void OrganicMainContentComponent::resized()
 void OrganicMainContentComponent::newOpenGLContextCreated()
 {
 #if JUCE_WINDOWS
-    juce::gl::glDisable(juce::gl::GL_DEBUG_OUTPUT);
+	juce::gl::glDisable(juce::gl::GL_DEBUG_OUTPUT);
 #endif
-	if (SharedTextureManager::getInstanceWithoutCreating() != nullptr) SharedTextureManager::getInstance()->initGL();
+	if (sharedTextureManager != nullptr) sharedTextureManager->initGL();
 }
 
 void OrganicMainContentComponent::renderOpenGL()
 {
-	if (SharedTextureManager::getInstanceWithoutCreating() != nullptr) SharedTextureManager::getInstance()->renderGL();
+	if (sharedTextureManager != nullptr) sharedTextureManager->renderGL();
 }
 
 void OrganicMainContentComponent::openGLContextClosing()
 {
-	if (SharedTextureManager::getInstanceWithoutCreating() != nullptr) SharedTextureManager::getInstance()->clearGL();
+	if (sharedTextureManager != nullptr) sharedTextureManager->clearGL();
 }
 #endif
 
