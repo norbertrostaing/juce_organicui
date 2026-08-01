@@ -1,8 +1,6 @@
 
 #include "JuceHeader.h"
 
-static String EmptyString;
-
 CustomLoggerUI::CustomLoggerUI(const String& contentName, CustomLogger* l) :
 	ShapeShifterContentComponent(contentName),
 	logger(l),
@@ -106,12 +104,19 @@ void CustomLoggerUI::updateTotalLogRow()
 	}
 
 }
-const String& CustomLoggerUI::getSourceForRow(const int r) const
+String CustomLoggerUI::getSourceForRow(const int r) const
 {
-	if (auto el = getElementForRow(r)) {
-		return el->source;
+	if (r < 0) return {};
+
+	int count = 0;
+	GenericScopedLock lock(logger->logElements.getLock());
+	for (auto* el : logger->logElements)
+	{
+		const int numLines = el->getNumLines();
+		if (count + numLines > r) return el->source;
+		count += numLines;
 	}
-	return EmptyString;
+	return {};
 }
 const bool CustomLoggerUI::isPrimaryRow(const int r) const
 {
@@ -135,10 +140,13 @@ const bool CustomLoggerUI::isPrimaryRow(const int r) const
 	return false;
 }
 
-const String& CustomLoggerUI::getContentForRow(const int r) const
+String CustomLoggerUI::getContentForRow(const int r) const
 {
+	if (r < 0) return {};
+
 	int count = 0;
 	int idx = 0;
+	GenericScopedLock lock(logger->logElements.getLock());
 
 	while (idx < logger->logElements.size())
 	{
@@ -154,68 +162,50 @@ const String& CustomLoggerUI::getContentForRow(const int r) const
 		idx++;
 	}
 
-	return EmptyString;
+	return {};
 };
-
-const LogElement* CustomLoggerUI::getElementForRow(const int r) const {
-	int count = 0;
-	int idx = 0;
-
-	GenericScopedLock lock(logger->logElements.getLock());
-	while (idx < logger->logElements.size())
-	{
-		auto el = logger->logElements.getUnchecked(idx);
-
-		int nl = el->getNumLines();
-
-		if (count + nl > r)
-		{
-			return el;
-		}
-
-		count += nl;
-		idx++;
-	}
-
-	return nullptr;
-
-}
 
 const String  CustomLoggerUI::getTimeStringForRow(const int r) const
 {
-	if (auto el = getElementForRow(r)) {
-		return String(el->time.toString(false, true, true, true) + "." + String::formatted("%03d", el->time.getMilliseconds()));
+	if (r < 0) return {};
+
+	int count = 0;
+	GenericScopedLock lock(logger->logElements.getLock());
+	for (auto* el : logger->logElements)
+	{
+		const int numLines = el->getNumLines();
+		if (count + numLines > r)
+			return el->time.toString(false, true, true, true) + "." + String::formatted("%03d", el->time.getMilliseconds());
+		count += numLines;
 	}
 
-	return "";
+	return {};
 };
 
-const Colour& CustomLoggerUI::getSeverityColourForRow(const int r) const
+Colour CustomLoggerUI::getSeverityColourForRow(const int r) const
 {
-
-	if (auto el = getElementForRow(r))
+	if (r >= 0)
 	{
-		LogElement::Severity s = el->severity;
-
-		switch (s)
+		int count = 0;
+		GenericScopedLock lock(logger->logElements.getLock());
+		for (auto* el : logger->logElements)
 		{
-		case LogElement::LOG_NONE:
-			return logNoneColor;
+			const int numLines = el->getNumLines();
+			if (count + numLines <= r)
+			{
+				count += numLines;
+				continue;
+			}
 
-		case LogElement::LOG_DBG:
-			return logDbgColor;
-
-		case LogElement::LOG_WARN:
-			return Colours::orange;
-
-		case LogElement::LOG_ERR:
-			return Colours::red;
-
-		default:
-			return Colours::pink;
-
+			switch (el->severity)
+			{
+			case LogElement::LOG_NONE: return logNoneColor;
+			case LogElement::LOG_DBG: return logDbgColor;
+			case LogElement::LOG_WARN: return Colours::orange;
+			case LogElement::LOG_ERR: return Colours::red;
+			default: return Colours::pink;
+			}
 		}
-
 	}
 
 	return Colours::pink;
@@ -234,8 +224,11 @@ void CustomLoggerUI::mouseDown(const MouseEvent& me) {
 		p.addItem(1, "Copy this line (Content only)");
 		p.addItem(2, "Copy this line (All)");
 
-		p.showMenuAsync(PopupMenu::Options(), [this, rowUnderMouse](int result)
+		Component::SafePointer<CustomLoggerUI> safeThis(this);
+		p.showMenuAsync(PopupMenu::Options(), [this, safeThis, rowUnderMouse](int result)
 			{
+				if (safeThis == nullptr) return;
+
 				switch (result)
 				{
 				case 1:
@@ -428,16 +421,12 @@ void CustomLoggerUI::LogList::paintCell(Graphics& g,
 
 String CustomLoggerUI::LogList::getCellTooltip(int rowNumber, int /*columnId*/)
 {
-	auto el = owner->getElementForRow(rowNumber);
+	const String source = owner->getSourceForRow(rowNumber);
+	const String time = owner->getTimeStringForRow(rowNumber);
+	const String content = owner->getContentForRow(rowNumber);
+	if (source.isEmpty() && time.isEmpty() && content.isEmpty()) return "[Error]";
 
-	if (el == nullptr) return "[Error]";
-	String sR = el->source;
-	return
-		(sR.isNotEmpty() ?
-			sR + " (" + el->time.toString(false, true, true, true) + ")" + "\n" : "")
-		+ (el->getNumLines() < 10 ? el->content : owner->getSourceForRow(rowNumber));
-
-
+	return (source.isNotEmpty() ? source + " (" + time + ")\n" : "") + content;
 };
 
 #if USE_CACHED_GLYPH

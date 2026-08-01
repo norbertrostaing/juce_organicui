@@ -76,6 +76,8 @@ var OSCHelpers::argumentToVar(const OSCArgument& a)
 
 void OSCHelpers::addArgumentsForParameter(OSCMessage& m, Parameter* p, BoolMode bm, ColorMode cm, var forceVar)
 {
+	if (p == nullptr) return;
+
 	var val = forceVar.isVoid() ? p->getValue() : forceVar;
 
 	switch (p->type)
@@ -87,7 +89,12 @@ void OSCHelpers::addArgumentsForParameter(OSCMessage& m, Parameter* p, BoolMode 
 	case Controllable::STRING: m.addString(val.toString()); break;
 	case Controllable::COLOR:
 	{
-		Colour c = Colour::fromFloatRGBA(val[0], val[1], val[2], val[3]);
+		Colour c = ((ColorParameter*)p)->getColor();
+		if (val.isArray() && val.size() >= 4)
+			c = Colour::fromFloatRGBA(val[0], val[1], val[2], val[3]);
+		else if (val.isString())
+			c = Colour::fromString(val.toString());
+
 		OSCHelpers::addColorArgumentToMessage(m, c, cm);
 		break;
 	}

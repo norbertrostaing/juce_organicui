@@ -186,13 +186,14 @@ void OrganicApplication::systemRequestedQuit()
 
 void OrganicApplication::anotherInstanceStarted(const String& commandLine)
 {
-	engine->parseCommandline(commandLine);
+	if (engine != nullptr) engine->parseCommandline(commandLine);
+	if (mainWindow == nullptr) return;
 
 	if (mainWindow->trayIcon != nullptr)
 	{
 		mainWindow->addToDesktop();
 		mainWindow->setVisible(true);
-		mainComponent->setupOpenGL();
+		if (mainComponent != nullptr) mainComponent->setupOpenGL();
 		mainWindow->setTrayIconVisible(false);
 	}
 	else if (mainWindow->isMinimised())

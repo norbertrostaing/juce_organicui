@@ -155,7 +155,11 @@ private:
         if (isBeingDestroyed.load(std::memory_order_acquire))
             return;
 
-        juce::Array<MessageClass*> messagesToDeliver;
+        // Take ownership of ready messages before releasing queueLock. Once
+        // finishedRead() makes a slot writable, a producer may immediately
+        // reuse it; leaving the message owned by messageQueue would let set()
+        // delete it while listeners are still reading it.
+        juce::OwnedArray<MessageClass> messagesToDeliver;
         MessageClass* lastMessage = nullptr;
 
         {
@@ -177,6 +181,7 @@ private:
                 if (auto* message = messageQueue.getUnchecked(i))
                 {
                     messagesToDeliver.add(message);
+                    messageQueue.set(i, nullptr, false);
                     lastMessage = message;
                 }
             }
@@ -194,6 +199,7 @@ private:
                     if (auto* message = messageQueue.getUnchecked(i))
                     {
                         messagesToDeliver.add(message);
+                        messageQueue.set(i, nullptr, false);
                         lastMessage = message;
                     }
                 }
@@ -201,6 +207,7 @@ private:
 
             if (outOfRange)
             {
+                messageQueue.clear();
                 fifo.reset();
                 return;
             }

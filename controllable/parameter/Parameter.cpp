@@ -234,7 +234,10 @@ void Parameter::setRange(var min, var max)
 	arr.append(minimumValue);
 	arr.append(maximumValue);
 
-	if (auto* mm = MessageManager::getInstanceWithoutCreating(); mm != nullptr && !mm->isThisTheMessageThread())
+	auto* mm = MessageManager::getInstanceWithoutCreating();
+	const bool shouldNotify = mm == nullptr || !mm->hasStopMessageBeenSent();
+
+	if (shouldNotify && mm != nullptr && !mm->isThisTheMessageThread())
 	{
 		WeakReference<Parameter> safeThis(this);
 		const auto safeRange = arr.clone();
@@ -253,7 +256,7 @@ void Parameter::setRange(var min, var max)
 			});
 
 	}
-	else
+	else if (shouldNotify)
 	{
 		WeakReference<Parameter> safeThis(this);
 		parameterListeners.call(&ParameterListener::parameterRangeChanged, this);
@@ -465,7 +468,10 @@ void Parameter::notifyValueChanged() {
 
 	if (!lock.isLocked()) return;
 
-	if (auto* mm = MessageManager::getInstanceWithoutCreating(); mm != nullptr && !mm->isThisTheMessageThread())
+	auto* mm = MessageManager::getInstanceWithoutCreating();
+	if (mm != nullptr && mm->hasStopMessageBeenSent()) return;
+
+	if (mm != nullptr && !mm->isThisTheMessageThread())
 	{
 		WeakReference<Parameter> safeThis(this);
 		const auto valueCopy = getValue();

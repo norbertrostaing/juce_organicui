@@ -544,12 +544,14 @@ var Controllable::setValueFromScript(const juce::var::NativeFunctionArgs& a) {
 var Controllable::checkIsParameterFromScript(const juce::var::NativeFunctionArgs& a) {
 
 	Controllable* c = getObjectFromJS<Controllable>(a);
+	if (c == nullptr) return false;
 	return c->type != TRIGGER;
 }
 
 var Controllable::getParentFromScript(const juce::var::NativeFunctionArgs& a)
 {
 	Controllable* c = getObjectFromJS<Controllable>(a);
+	if (c == nullptr) return var();
 	int level = a.numArguments > 0 ? (int)a.arguments[0] : 1;
 	ControllableContainer* target = c->parentContainer;
 	if (target == nullptr) return var();
@@ -566,6 +568,7 @@ var Controllable::setNameFromScript(const juce::var::NativeFunctionArgs& a)
 {
 	if (a.numArguments == 0) return var();
 	Controllable* c = getObjectFromJS<Controllable>(a);
+	if (c == nullptr) return var();
 	c->setNiceName(a.arguments[0].toString());
 	if (a.numArguments >= 2) c->setCustomShortName(a.arguments[1].toString());
 	else c->setAutoShortName();
@@ -618,13 +621,13 @@ var Controllable::getScriptControlAddressFromScript(const juce::var::NativeFunct
 var Controllable::getJSONDataFromScript(const var::NativeFunctionArgs& a)
 {
 	Controllable* cc = getObjectFromJS<Controllable>(a);
-	return cc->getJSONData();
+	return cc != nullptr ? cc->getJSONData() : var();
 }
 
 var Controllable::loadJSONDataFromScript(const var::NativeFunctionArgs& a)
 {
 	Controllable* c = getObjectFromJS<Controllable>(a);
-	if (a.numArguments == 0) return false;
+	if (c == nullptr || a.numArguments == 0) return false;
 	c->loadJSONData(a.arguments[0]);
 	return true;
 }
