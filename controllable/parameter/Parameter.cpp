@@ -53,12 +53,9 @@ Parameter::~Parameter()
 	if (referenceTarget != nullptr) referenceTarget->removeParameterListener(this); //avoid reassigning on deletion
 	setReferenceParameter(nullptr);
 
-	// Block until all pending updates have been handled
-	while (queuedNotifier.isUpdatePending())
-	{
-		Thread::sleep(10);
-	}
-
+	// A pending AsyncUpdater cannot be delivered once the message loop is stopping.
+	// Waiting here also deadlocks when destruction runs on the message thread, since
+	// that is the thread that would have to deliver the update.
 	queuedNotifier.cancelPendingUpdate();
 	queuedNotifier.clearQueue();
 
