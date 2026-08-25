@@ -13,6 +13,10 @@ ScriptTarget::ScriptTarget(const String& name, void* ptr, const String& targetTy
 
 ScriptTarget::~ScriptTarget()
 {
+	const SpinLock::ScopedLockType lock(scriptObjectLock);
+	thisPtr = 0;
+	if (DynamicObject* object = scriptObject.getDynamicObject())
+		object->setProperty(scriptPtrIdentifier, (int64)0);
 }
 
 var ScriptTarget::getScriptObject()

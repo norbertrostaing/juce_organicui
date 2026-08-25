@@ -53,8 +53,9 @@ Parameter::~Parameter()
 	if (referenceTarget != nullptr) referenceTarget->removeParameterListener(this); //avoid reassigning on deletion
 	setReferenceParameter(nullptr);
 
-	MessageManagerLock mmLock(Thread::getCurrentThread());
-	if (mmLock.lockWasGained() && queuedNotifier.isUpdatePending()) queuedNotifier.handleUpdateNowIfNeeded();
+	// A pending AsyncUpdater cannot be delivered once the message loop is stopping.
+	// Waiting here also deadlocks when destruction runs on the message thread, since
+	// that is the thread that would have to deliver the update.
 	queuedNotifier.cancelPendingUpdate();
 	queuedNotifier.clearQueue();
 
@@ -444,7 +445,10 @@ void Parameter::notifyValueChanged() {
 
 	if (!lock.isLocked()) return;
 
-	if (auto* mm = MessageManager::getInstanceWithoutCreating(); mm != nullptr && !mm->isThisTheMessageThread())
+	auto* mm = MessageManager::getInstanceWithoutCreating();
+	if (mm != nullptr && mm->hasStopMessageBeenSent()) return;
+
+	if (mm != nullptr && !mm->isThisTheMessageThread())
 	{
 		WeakReference<Parameter> safeThis(this);
 		const auto valueCopy = getValue();

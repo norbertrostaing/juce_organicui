@@ -13,6 +13,7 @@ OrganicMainContentComponent::OrganicMainContentComponent()
 
 	lookAndFeelOO.reset(new LookAndFeelOO());
 	LookAndFeel::setDefaultLookAndFeel(lookAndFeelOO.get());
+	GlobalSettings::getInstance()->applyFontSettings(true);
 
 #if JUCE_MAC
 	setMacMainMenu(this, nullptr, "");
@@ -21,7 +22,8 @@ OrganicMainContentComponent::OrganicMainContentComponent()
 #endif
 
 #if ORGANICUI_USE_SHAREDTEXTURE
-	SharedTextureManager::getInstance(); //create the main instance
+	sharedTextureManager = new SharedTextureManager();
+	g_SharedTextureManager = sharedTextureManager;
 #endif
 
 }
@@ -39,7 +41,11 @@ OrganicMainContentComponent::~OrganicMainContentComponent()
 	OrganicUITimers::deleteInstance();
 
 #if ORGANICUI_USE_SHAREDTEXTURE
-	SharedTextureManager::deleteInstance();
+	if (sharedTextureManager != nullptr) {
+		delete sharedTextureManager;
+		sharedTextureManager = nullptr;
+	}
+	g_SharedTextureManager = nullptr;
 #endif
 }
 
@@ -107,28 +113,40 @@ void OrganicMainContentComponent::afterInit()
 
 
 	if (isShowing()) grabKeyboardFocus();
+
+	// Some Windows systems populate JUCE's glyph caches while the interface is still
+	// being assembled. Repeating the cache reset after all panels exist is equivalent
+	// to pressing the manual Reload font renderer trigger, but happens automatically.
+	GlobalSettings::getInstance()->scheduleFontRendererReload();
 }
 
 void OrganicMainContentComponent::setupOpenGL()
 {
 #if JUCE_OPENGL
-if (GlobalSettings::getInstance()->useGLRenderer->boolValue())
-{
-	if (openGLContext == nullptr)
+	if (GlobalSettings::getInstance()->useGLRenderer->boolValue())
 	{
-		openGLContext.reset(new OpenGLContext());
-		openGLContext->setComponentPaintingEnabled(true);
-		openGLContext->setContinuousRepainting(false);
+		if (openGLContext == nullptr)
+		{
+			openGLContext.reset(new OpenGLContext());
+			openGLContext->setComponentPaintingEnabled(true);
+			openGLContext->setContinuousRepainting(false);
 
-		setupOpenGLInternal();
+			setupOpenGLInternal();
 
 #if ORGANICUI_USE_SHAREDTEXTURE
-		openGLContext->setRenderer(this);
+			openGLContext->setRenderer(this);
 #endif
 
-		openGLContext->attachTo(*this);
+			openGLContext->attachTo(*this);
+		}
 	}
-}
+	else if (openGLContext != nullptr)
+	{
+		openGLContext->detach();
+		openGLContext->setRenderer(nullptr);
+		openGLContext.reset();
+		repaint();
+	}
 #endif
 }
 
@@ -162,19 +180,19 @@ void OrganicMainContentComponent::resized()
 void OrganicMainContentComponent::newOpenGLContextCreated()
 {
 #if JUCE_WINDOWS
-    juce::gl::glDisable(juce::gl::GL_DEBUG_OUTPUT);
+	juce::gl::glDisable(juce::gl::GL_DEBUG_OUTPUT);
 #endif
-	if (SharedTextureManager::getInstanceWithoutCreating() != nullptr) SharedTextureManager::getInstance()->initGL();
+	if (sharedTextureManager != nullptr) sharedTextureManager->initGL();
 }
 
 void OrganicMainContentComponent::renderOpenGL()
 {
-	if (SharedTextureManager::getInstanceWithoutCreating() != nullptr) SharedTextureManager::getInstance()->renderGL();
+	if (sharedTextureManager != nullptr) sharedTextureManager->renderGL();
 }
 
 void OrganicMainContentComponent::openGLContextClosing()
 {
-	if (SharedTextureManager::getInstanceWithoutCreating() != nullptr) SharedTextureManager::getInstance()->clearGL();
+	if (sharedTextureManager != nullptr) sharedTextureManager->clearGL();
 }
 #endif
 

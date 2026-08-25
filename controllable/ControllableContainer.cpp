@@ -999,7 +999,7 @@ var ControllableContainer::getJSONData(bool includeNonOverriden)
 		//ownedContainers.getLock().enter();
 		for (auto& cc : controllableContainers)
 		{
-			if (!cc->includeInRecursiveSave) continue;
+			if (cc == nullptr || cc.wasObjectDeleted() || !cc->includeInRecursiveSave) continue;
 
 			var ccData = cc->getJSONData();
 			if (ownedContainers.contains(cc))
@@ -1112,16 +1112,22 @@ var ControllableContainer::getRemoteControlData()
 
 	var contentData(new DynamicObject());
 
-	for (auto& childC : controllables)
 	{
-		if (childC->hideInRemoteControl) continue;
-		contentData.getDynamicObject()->setProperty(childC->shortName, childC->getRemoteControlData());
+		GenericScopedLock lock(controllables.getLock());
+		for (auto& childC : controllables)
+		{
+			if (childC->hideInRemoteControl) continue;
+			contentData.getDynamicObject()->setProperty(childC->shortName, childC->getRemoteControlData());
+		}
 	}
 
-	for (auto& childCC : controllableContainers)
 	{
-		if (childCC == nullptr || childCC.wasObjectDeleted() || childCC->hideInRemoteControl) continue;
-		contentData.getDynamicObject()->setProperty(childCC->shortName, childCC->getRemoteControlData());
+		GenericScopedLock lock(controllableContainers.getLock());
+		for (auto& childCC : controllableContainers)
+		{
+			if (childCC == nullptr || childCC.wasObjectDeleted() || childCC->hideInRemoteControl) continue;
+			contentData.getDynamicObject()->setProperty(childCC->shortName, childCC->getRemoteControlData());
+		}
 	}
 
 	data.getDynamicObject()->setProperty("CONTENTS", contentData);

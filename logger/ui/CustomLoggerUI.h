@@ -56,6 +56,7 @@ public:
 		juce::String getTextAt(int rowNumber, int columnId);
 
 		juce::String getCellTooltip(int /*rowNumber*/, int /*columnId*/)    override;
+		void refreshFont();
 
 	private:
 #if USE_CACHED_GLYPH
@@ -65,6 +66,7 @@ public:
 
 
 		int minRow, maxRow;
+		juce::Font logFont { 12.0f };
 		CustomLoggerUI* owner;
 		friend class CustomLoggerUI;
 	};
@@ -72,6 +74,7 @@ public:
 	CustomLogger* logger;
 
 	void resized()override;
+	void lookAndFeelChanged() override;
 	LogList logList;
 	juce::TextButton clearB, copyB, autoScrollB;
 	std::unique_ptr<juce::TableListBox> logListComponent;
@@ -95,11 +98,10 @@ private:
 
 	juce::Atomic<int> totalLogRow;
 	void updateTotalLogRow();
-	const LogElement * getElementForRow(const int r) const;
-	const juce::String& getSourceForRow(const int r) const;
+	juce::String getSourceForRow(const int r) const;
 	const bool isPrimaryRow(const int r) const;
-	const juce::String& getContentForRow(const int r) const;
-	const juce::Colour& getSeverityColourForRow(const int r)const;
+	juce::String getContentForRow(const int r) const;
+	juce::Colour getSeverityColourForRow(const int r)const;
 	const juce::String getTimeStringForRow(const int r) const;
 	friend class LogList;
 

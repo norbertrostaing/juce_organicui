@@ -127,28 +127,31 @@ void TargetParameter::setValueFromTarget(Controllable* c, bool addToUndo)
 
 void TargetParameter::setValueFromTarget(ControllableContainer* cc, bool addToUndo)
 {
-	if (targetContainer != nullptr && cc == targetContainer.get())
-	{
-		String ca = targetContainer->getControlAddress(rootContainer);
-		if (stringValue() == ca) return;
+	String newValue;
 
-		if (rootContainer != nullptr)
+	if (cc != nullptr)
+	{
+		if (targetContainer != nullptr && !targetContainer.wasObjectDeleted() && cc == targetContainer.get())
 		{
-			if (rootContainer->getControllableContainerForAddress(ca) == nullptr)
+			String ca = targetContainer->getControlAddress(rootContainer);
+			if (stringValue() == ca) return;
+
+			if (rootContainer != nullptr)
 			{
-				//DBG("Back link broken !");
-				return;
+				if (rootContainer->getControllableContainerForAddress(ca) == nullptr)
+				{
+					//DBG("Back link broken !");
+					return;
+				}
 			}
 		}
-	}
 
-	if (cc == nullptr)
-	{
-		manuallySettingNull = true;
+		newValue = cc->getControlAddress(rootContainer);
 	}
+	else manuallySettingNull = true;
 
-	if (addToUndo) setUndoableValue(stringValue(), cc->getControlAddress(rootContainer));
-	else setValue(cc->getControlAddress(rootContainer), false, true);
+	if (addToUndo) setUndoableValue(stringValue(), newValue);
+	else setValue(newValue, false, true);
 
 	manuallySettingNull = false;
 }
